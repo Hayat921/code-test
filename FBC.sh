@@ -78,7 +78,7 @@ hip_caudal_L=217
 hip_rostral_R=216
 hip_caudal_R=218
 
-
+hDFJKGHAFLAYF
 mrcalc "$atlas_file_hippocampus" $hip_rostral_L -eq "$atlas_file_hippocampus" $hip_caudal_L -eq -add 0 -gt "${template_dir}/HippocampusLeft_mask.mif" -force
 mrcalc "$atlas_file_hippocampus" $hip_rostral_R -eq "$atlas_file_hippocampus" $hip_caudal_R -eq -add 0 -gt "${template_dir}/HippocampusRight_mask.mif" -force
 mrcalc "${template_dir}/HippocampusLeft_mask.mif" "${template_dir}/HippocampusRight_mask.mif" -add 0 -gt "${template_dir}/Hippocampus_mask.mif" -force
