@@ -1,0 +1,5 @@
+# command_history: transformconvert diff2struct_fsl.mat /home/hkhe451/phd-projects/BDNF-project/BDNF_project_data/derivatives/MRtrix3/sub-01/dwi/sub-01_den_preproc_unbiased_b0.nii.gz /home/hkhe451/phd-projects/BDNF-project/BDNF_project_data/derivatives/MRtrix3/sub-01/anat/sub-01_T1w_nocoreg.nii.gz flirt_import diff2struct_mrtrix.txt  (version=3.0.4-46-g8a192720)
+0.999944841602928 -0.00488517851155882 0.00929526720484895 -0.583826325361065
+0.0048696450954368 0.999986693252909 0.00169267748336089 0.840897633757102
+-0.00930341577185509 -0.00164732268984884 0.99995539712383 1.37365161606348
+0 0 0 1
