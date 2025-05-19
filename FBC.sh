@@ -96,8 +96,7 @@ echo "Ch123 and Hippocampus masks extracted."
   -maxlength 250 \
   "${data_directory}/derivatives/MRtrix3/template/global_tractography.tck" \
   -force
-  
-  
+
 # --------- Step 5: Run SIFT2 on the Whole-Brain Tractogram ---------
 
 tcksift2 "${data_directory}/derivatives/MRtrix3/template/global_tractography.tck" \
@@ -127,36 +126,68 @@ mrview "${data_directory}/derivatives/MRtrix3/template/wmfod_template_MNI.mif" \
 
 echo "Filtered tractography to include only endpoints."
 
-# --------- Step 5: Map streamlines to fixels ---------
-tck2fixel "${template_dir}/tract_ch123_to_hippocampus_filtered.tck" \
-          "$fixel_mask" \
-          "${template_dir}/tract_fixels" \
-          "${template_dir}/tract_fixels/streamline_density.mif" \
-          -force
+# --------- Step 7: Create voxel-wise streamline density using SIFT2 weights ---------
 
-echo "Streamlines mapped to fixels."
-
-# --------- Step 6: Multiply FD × streamline density = True FBC ---------
-mrcalc "${template_dir}/fd.mif" "${template_dir}/tract_fixels/streamline_density.mif" -mult \
-       "${template_dir}/tract_fixels/FBC_septum_hippocampus.mif" \
+tckmap "${data_directory}/derivatives/MRtrix3/template/tract_ch123_to_hippocampus_filtered.tck" \
+       "${data_directory}/derivatives/MRtrix3/template/tract_voxelwise_density.mif" \
+       -template "${data_directory}/derivatives/MRtrix3/template/wmfod_template_MNI.mif" \
+       -tck_weights_in "${data_directory}/derivatives/MRtrix3/template/sift2_weights_filtered.txt" \
+       -precise \
        -force
 
-echo "FBC (Fibre Bundle Capacity) calculated."
+echo "Voxel-wise streamline density created using SIFT2 weights."
 
-# --------- Step 7: Extract Mean FBC value ---------
-mrstats "${template_dir}/tract_fixels/FBC_septum_hippocampus.mif" \
-        -mask "${template_dir}/tract_fixels/streamline_density.mif" \
-        -output mean > "${template_dir}/tract_fixels/mean_FBC_value.txt"
+# --------- Step 8: Convert voxel-wise density to fixel-wise density ---------
 
-echo "Mean FBC extracted. Check file: ${template_dir}/tract_fixels/mean_FBC_value.txt"
+voxel2fixel "${data_directory}/derivatives/MRtrix3/template/tract_voxelwise_density.mif" \
+            "${data_directory}/derivatives/MRtrix3/template/fixel_mask" \
+            "${data_directory}/derivatives/MRtrix3/template/tract_fixels" \
+            "streamline_density_fixel.mif" \
+            -force
 
-# --------- Step 8: Visualize FBC map ---------
-mrview "$wmfod_template" \
-  -fixel.load "${template_dir}/tract_fixels" \
-  -fixel.metric "${template_dir}/tract_fixels/FBC_septum_hippocampus.mif" \
-  -fixel.display_threshold 0.01
 
-echo " Full FBC pipeline complete!"
+echo "Streamline density mapped to fixel space."
+
+#----------- Compute group-average FD in fixel space ---------
+
+
+mrcat ${data_directory}/derivatives/MRtrix3/template/fd/sub-*_fd.mif -axis 3 \
+      ${data_directory}/derivatives/MRtrix3/template/fd/fd_all_subjects.mif \
+      -force
+
+mrmath ${data_directory}/derivatives/MRtrix3/template/fd/fd_all_subjects.mif mean -axis 3 \
+       ${data_directory}/derivatives/MRtrix3/template/fd/fd.mif \
+       -force
+
+fixelcorrespondence \
+  "${data_directory}/derivatives/MRtrix3/template/fd/fd.mif" \
+  "${data_directory}/derivatives/MRtrix3/template/fd" \
+  "${data_directory}/derivatives/MRtrix3/template/tract_fixels" \
+  "fd_in_tract.mif" \
+  -force
+
+# --------- Step 9: Multiply FD × streamline_density = FBC ---------
+
+mrcalc "${data_directory}/derivatives/MRtrix3/template/tract_fixels/fd_in_tract.mif" \
+       "${data_directory}/derivatives/MRtrix3/template/tract_fixels/streamline_density_fixel.mif" \
+       -mult \
+       "${data_directory}/derivatives/MRtrix3/template/tract_fixels/FBC_ch123_to_hippocampus_sift2.mif" \
+       -force
+
+echo "SIFT2-weighted FBC calculated in fixel space."
+
+
+# --------- Step 10: Extract mean FBC value ---------
+
+mrstats "${data_directory}/derivatives/MRtrix3/template/tract_fixels/FBC_ch123_to_hippocampus_sift2.mif" \
+  -mask "${data_directory}/derivatives/MRtrix3/template/tract_fixels/streamline_density_fixel.mif" \
+  -output mean
+
+
+
+
+echo "Mean FBC extracted and saved."
+
 
 
 
