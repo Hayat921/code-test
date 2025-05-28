@@ -42,7 +42,9 @@ do
   tcktransform "${template_dir}/tract_ch123_to_hippocampus_filtered.tck" \
                "${data_directory}/derivatives/MRtrix3/${subject}/dwi/${subject}_template2subject_warp.mif" \
                "${data_directory}/derivatives/MRtrix3/${subject}/dwi/${subject}_tract_ch123_to_hippocampus.tck" \
-               -force
+     
+
+
 
 for subject in $(cat "$subjects_list")
 do
