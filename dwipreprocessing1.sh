@@ -147,7 +147,7 @@ done
 
 
 
-	population_template "${data_directory}/derivatives/MRtrix3/template/fod_input" -mask_dir "${data_directory}/derivatives/MRtrix3/template/mask_input/" "${data_directory}/derivatives/MRtrix3/template/wmfod_template.mif" -voxel_size 1.25 
+	population_template "${data_directory}/derivatives/MRtrix3/template/fod_input" -mask_dir "${data_directory}/derivatives/MRtrix3/template/mask_input/" "${data_directory}/derivatives/MRtrix3/template/wmfod_template.mif" -voxel_size 1.25 -warp_dir "${data_directory}/derivatives/MRtrix3/template/warps"
 
 echo "----------------- Co-register the study specific population template to MNI space using FA based affine registration -----------------"
 
@@ -167,6 +167,8 @@ transformconvert "${data_directory}/derivatives/MRtrix3/template/wmfod_template_
 
 # Should the reorient_fod be "true" or "false"
 mrtransform "${data_directory}/derivatives/MRtrix3/template/wmfod_template.nii.gz" -linear "${data_directory}/derivatives/MRtrix3/template/wmfod_template_2_MNI.txt" -template $mni_FA_template "${data_directory}/derivatives/MRtrix3/template/wmfod_template_MNI.nii.gz" -reorient_fod true -force
+
+
 
 mrconvert "${data_directory}/derivatives/MRtrix3/template/wmfod_template_MNI.nii.gz" "${data_directory}/derivatives/MRtrix3/template/wmfod_template_MNI.mif" -force
 

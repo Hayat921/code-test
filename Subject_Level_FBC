@@ -24,6 +24,16 @@ fbc_output_dir="${template_dir}/FBC_ch123_to_hippocampus"
 mkdir -p "$density_dir"
 mkdir -p "$fbc_output_dir"
 
+
+
+# Output folders
+fixel_mask="${template_dir}/fixel_mask"
+density_dir="${data_directory}/derivatives/MRtrix3/tract_densities"
+fbc_output_dir="${template_dir}/FBC_ch123_to_hippocampus"
+
+mkdir -p "$density_dir"
+mkdir -p "$fbc_output_dir"
+
 # Template masks (from previous pipeline)
 template_ch123_mask="${template_dir}/ch123_bilateral_mask_bin.mif"
 template_hippocampus_mask="${template_dir}/Hippocampus_mask.mif"
@@ -34,15 +44,15 @@ Julich_Atlas="${data_directory}/JulichBrainAtlas_3.0_areas_MPM_b_N10_nlin2ICBM15
 
 mrconvert "$Julich_Atlas" "${template_dir}/julich_mpm_3.0.mif" -force
 
-mrcalc julich_mpm_3.0.mif 1097 -eq ch123_right_mask.mif -force
+mrcalc "${template_dir}/julich_mpm_3.0.mif" 1097 -eq ch123_right_mask.mif -force
 
-mrcalc julich_mpm_3.0.mif 97 -eq ch123_left_mask.mif -force  
+mrcalc "${template_dir}/julich_mpm_3.0.mif" 97 -eq ch123_left_mask.mif -force  
 
 mrcalc ch123_left_mask.mif ch123_right_mask.mif -add ch123_bilateral_mask.mif -force
 
 mrcalc ch123_bilateral_mask.mif 0 -gt ch123_bilateral_mask_bin.mif -force
 
-mrview "${data_directory}/derivatives/MRtrix3/template/wmfod_template_MNI.mif" -overlay.load ch123_bilateral_mask_bin.mif
+#mrview "${data_directory}/derivatives/MRtrix3/template/wmfod_template_MNI.mif" -overlay.load ch123_bilateral_mask_bin.mif
 
 
 hip_rostral_L=215
@@ -73,41 +83,17 @@ template_hippocampus_mask="${template_dir}/hippocampus_resampled_to_template_mni
 
 echo "----------------- Subject-level FBC pipeline -----------------"
 
-#mrview "${subject_dir}/${subject-02}_wmfod_norm.mif"\
-  #-overlay.load "${subject_dir}/${subject-01}_ch123_mask_subject.mif" \
- # -overlay.load "${subject_dir}/${subject-01}_hippocampus_mask_subject.mif"
-
-
-
   # Convert FSL MNI reference image to .mif once outside the loop
+ref_nii=$FSLDIR/data/standard/MNI152_T1_2mm_brain.nii.gz
 ref_mif="${template_dir}/MNI152_T1_2mm_brain.mif"
 if [ ! -f "$ref_mif" ]; then
   mrconvert "$FSLDIR/data/standard/MNI152_T1_2mm_brain.nii.gz" "$ref_mif" -force
 fi
 
-  for subject in $(cat "$subjects_list"); do
-  echo "Processing subject: ${subject}"
-
-subject_dir="${data_directory}/derivatives/MRtrix3/${subject}/dwi"
-warp_dir="${data_directory}/derivatives/MRtrix3/${subject}/warp"
-
-
+  
 
 
 # === Step 3: Register template masks to subject space using MRTRIX nonlinear registration ===
-  echo " -> Registering template ROIs using mrregister..."
-
-
-  ref_nii=$FSLDIR/data/standard/MNI152_T1_2mm_brain.nii.gz
-
-
-
-echo " -> Running mrregister with: $ref_mif and $T1_mif"
-echo " -> Saving warp to: $warp_dir/${subject}_template2subject_warp.mif"
-
-  # Run nonlinear registration
-  # Run nonlinear registration and compute warp fields
-
 
 
 for subject in $(cat "$subjects_list"); do
@@ -124,11 +110,8 @@ for subject in $(cat "$subjects_list"); do
   mkdir -p "${subject_dir}/mrtrix_warp"
   warp_dir="${subject_dir}/mrtrix_warp"
 
+echo " -> Registering template ROIs using mrregister..."
 
- mrregister "$T1_mif" "$ref_mif" \
-    -type nonlinear \
-    -nl_warp "$warp_dir/template2subject_warp.mif" "$warp_dir/subject2template_warp.mif" \
-    -force
 
 
     # Apply warp to CH123 mask using nearest interpolation (keeps binary)
@@ -144,6 +127,141 @@ for subject in $(cat "$subjects_list"); do
     -warp "$warp_dir/template2subject_warp.mif" \
     -interp linear \
     -template "$fod" \
+    "${subject_dir}/hippocampus_mask_subject_float.mif" -force
+
+  mrcalc "${subject_dir}/hippocampus_mask_subject_float.mif" 0.5 -gt \
+    "${subject_dir}/hippocampus_mask_subject.mif" -force
+done
+template_hippocampus_mask="${template_dir}/Hippocampus_mask.mif"
+
+Julich_Atlas="${data_directory}/JulichBrainAtlas_3.0_areas_MPM_b_N10_nlin2ICBM152asym2009c_public_11035603b4744231e17e87fd8ebcaf1a.nii"
+
+#Right Ch123 
+
+mrconvert "$Julich_Atlas" "${template_dir}/julich_mpm_3.0.mif" -force
+
+mrcalc "${template_dir}/julich_mpm_3.0.mif" 1097 -eq ch123_right_mask.mif -force
+
+mrcalc "${template_dir}/julich_mpm_3.0.mif" 97 -eq ch123_left_mask.mif -force  
+
+mrcalc ch123_left_mask.mif ch123_right_mask.mif -add ch123_bilateral_mask.mif -force
+
+mrcalc ch123_bilateral_mask.mif 0 -gt ch123_bilateral_mask_bin.mif -force
+
+#mrview "${data_directory}/derivatives/MRtrix3/template/wmfod_template_MNI.mif" -overlay.load ch123_bilateral_mask_bin.mif
+
+
+hip_rostral_L=215
+hip_caudal_L=217
+hip_rostral_R=216
+hip_caudal_R=218
+
+
+mrcalc "$atlas_file_hippocampus" $hip_rostral_L -eq "$atlas_file_hippocampus" $hip_caudal_L -eq -add 0 -gt "${template_dir}/HippocampusLeft_mask.mif" -force
+mrcalc "$atlas_file_hippocampus" $hip_rostral_R -eq "$atlas_file_hippocampus" $hip_caudal_R -eq -add 0 -gt "${template_dir}/HippocampusRight_mask.mif" -force
+mrcalc "${template_dir}/HippocampusLeft_mask.mif" "${template_dir}/HippocampusRight_mask.mif" -add 0 -gt "${template_dir}/Hippocampus_mask.mif" -force
+
+# === Preprocess masks to match template grid ===
+mrtransform "${template_dir}/ch123_bilateral_mask_bin.mif" \
+  -template "${template_dir}/wmfod_template_MNI.mif" \
+  -interp nearest \
+  "${template_dir}/ch123_resampled_to_template_mni.mif" -force
+
+mrtransform "${template_dir}/Hippocampus_mask.mif" \
+  -template "${template_dir}/wmfod_template_MNI.mif" \
+  -interp nearest \
+  "${template_dir}/hippocampus_resampled_to_template_mni.mif" -force
+
+# ROI masks now resampled to template FOD grid
+template_ch123_mask="${template_dir}/ch123_resampled_to_template_mni.mif"
+template_hippocampus_mask="${template_dir}/hippocampus_resampled_to_template_mni.mif"
+
+
+echo "----------------- Subject-level FBC pipeline -----------------"
+
+  # Convert FSL MNI reference image to .mif once outside the loop
+ref_nii=$FSLDIR/data/standard/MNI152_T1_2mm_brain.nii.gz
+ref_mif="${template_dir}/MNI152_T1_2mm_brain.mif"
+if [ ! -f "$ref_mif" ]; then
+  mrconvert "$FSLDIR/data/standard/MNI152_T1_2mm_brain.nii.gz" "$ref_mif" -force
+fi
+
+  
+
+
+# === Step 3: Register template masks to subject space using MRTRIX nonlinear registration ===
+
+
+for subject in $(cat "$subjects_list")
+do
+
+echo "Processing subject: ${subject}"
+
+  T1_mif="${data_directory}/derivatives/MRtrix3/${subject}/anat/${subject}_T1w.mif"
+  warp_dir="${subject_dir}/mrtrix_warp"
+  template_ch123_mask="${template_dir}/ch123_resampled_to_template_mni.mif"
+  template_hippocampus_mask="${template_dir}/hippocampus_resampled_to_template_mni.mif"
+  ref_mif="${template_dir}/MNI152_T1_2mm_brain.mif"
+
+  subject_dir="${data_directory}/derivatives/MRtrix3/${subject}/dwi"
+  mkdir -p "${subject_dir}/mrtrix_warp"
+  warp_dir="${subject_dir}/mrtrix_warp"
+
+    fod_mean="${subject_dir}/${subject}_wmfod_norm_mean.mif"
+    mrmath "$fod" mean -axis 3 "$fod_mean" -force
+
+     mrtransform "$template_ch123_mask" \
+    -warp "$warp_dir/template2subject_warp.mif" \
+    -interp nearest \
+    -template "$fod_mean" \
+    "${subject_dir}/ch123_mask_subject.mif" -datatype bit -force
+
+    mrtransform "$template_hippocampus_mask" \
+    -warp "$warp_dir/template2subject_warp.mif" \
+    -interp linear \
+    -template "$fod_mean" \
+    "${subject_dir}/hippocampus_mask_subject_float.mif" -force
+
+    mrcalc "${subject_dir}/hippocampus_mask_subject_float.mif" 0.5 -gt \
+    "${subject_dir}/hippocampus_mask_subject.mif" -force
+
+
+ #fod_mean="${subject_dir}/${subject}_wmfod_norm_mean.mif"
+  #mrmath "$fod" mean -axis 3 "$fod_mean" -force
+
+
+# Nonlinear refinement
+#mrregister "$T1_mif" "$fod_mean" \
+ # -type nonlinear \
+  #-nl_warp "$warp_dir/T1_to_fod_template2subject.mif" "$warp_dir/T1_to_fod_subject2template.mif" \
+  #-force
+
+#mrregister "$fod_mean" "${subject_dir}/${subject}_mask_upsampled.mif" \
+ # -mask1 "${template_dir}/wmfod_template_mask_bin.mif" \
+  #-nl_warp "$warp_dir/T1_to_fod_template2subject.mif" "$warp_dir/T1_to_fod_subject2template.mif" \
+  #-force
+
+ done 
+
+ #mrregister "$T1_mif" "$ref_mif" \
+ # -type nonlinear \
+  # -nl_warp "$warp_dir/subject2template_warp.mif" "$warp_dir/template2subject_warp.mif" \
+  # -force
+
+
+    # Apply warp to CH123 mask using nearest interpolation (keeps binary)
+  # mrtransform "$template_ch123_mask" \
+  #  -warp "$warp_dir/template2subject_warp.mif" \
+  #  -interp nearest \
+  #  -template "$fod_mean" \
+  #  "${subject_dir}/ch123_mask_subject.mif" -datatype bit -force
+
+
+  # Apply warp to hippocampus mask using linear interp then binarise
+  mrtransform "$template_hippocampus_mask" \
+    -warp "$warp_dir/template2subject_warp.mif" \
+    -interp linear \
+    -template "$fod_mean" \
     "${subject_dir}/hippocampus_mask_subject_float.mif" -force
 
   mrcalc "${subject_dir}/hippocampus_mask_subject_float.mif" 0.5 -gt \
