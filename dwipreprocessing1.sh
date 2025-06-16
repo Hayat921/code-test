@@ -1,5 +1,5 @@
 #!/bin/sh
-data_directory="/media/hkhe451/Expansion/phd-projects/BDNF-project/BDNF_project_data"
+data_directory="/media/hkhe451/Expansion/phd-projects/BDNF-project"
 mni_FA_template="/media/hkhe451/Expansion/phd-projects/BDNF-project/BDNF_project_data/MNI_FA_template.nii.gz"
 
 mkdir -p "${data_directory}/derivatives/MRtrix3/template"
