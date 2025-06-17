@@ -70,6 +70,13 @@ mkdir "${data_directory}/derivatives/MRtrix3/template/fdc"
 	cp "${data_directory}/derivatives/MRtrix3/template/fc/directions.mif" "${data_directory}/derivatives/MRtrix3/template/fdc"
 	
 for subject in $(cat "${data_directory}/code/subjects.txt")
+
+do
+	
+	mrcalc "${data_directory}/derivatives/MRtrix3/template/fd/${subject}_fd.mif" "${data_directory}/derivatives/MRtrix3/template/fc/${subject}_fc.mif" -mult "${data_directory}/derivatives/MRtrix3/template/fdc/${subject}_fdc.mif"
+	
+done 		
+	
 echo "----------------- Whole-brain fibre tractography on FOD template -----------------"	
 
 	cd "${data_directory}/derivatives/MRtrix3/template"
@@ -79,12 +86,7 @@ echo "----------------- Whole-brain fibre tractography on FOD template ---------
 echo "----------------- Reduce Biases in Tractogram Desnisites -----------------"
 	
 	tcksift tracks_20_million.tck "wmfod_template.mif" tracks_2_million_sift.tck -term_number 2000000
-do
-	
-	mrcalc "${data_directory}/derivatives/MRtrix3/template/fd/${subject}_fd.mif" "${data_directory}/derivatives/MRtrix3/template/fc/${subject}_fc.mif" -mult "${data_directory}/derivatives/MRtrix3/template/fdc/${subject}_fdc.mif"
-	
-done 		
-	
+
 
 
 	

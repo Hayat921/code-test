@@ -2,6 +2,7 @@
 
 # === Directories ===
 data_directory=/media/hkhe451/Expansion/phd-projects/BDNF-project/BDNF_FI
+old_data_directory=/media/hkhe451/Expansion/phd-projects/BDNF-project/BDNF_project_data
 template_dir="${data_directory}/derivatives/MRtrix3/template"
 subjects_list="${data_directory}/code/subjects.txt"
 atlas_file_hippocampus="${data_directory}/BN_Atlas_246_in_template_space.mif"
@@ -126,42 +127,83 @@ mrtransform -linear "${template_dir}/wmfod_template_2_MNI.txt" \
   -template "${fod}" \
   -interp nearest -datatype bit -force
 
-done 
 
+# === Directories ===
+data_directory="/media/hkhe451/Expansion/phd-projects/BDNF-project/BDNF_FI"
+old_data_directory="/media/hkhe451/Expansion/phd-projects/BDNF-project/BDNF_project_data"
+template_dir="${data_directory}/derivatives/MRtrix3/template"
+subjects_list="${data_directory}/code/sub_files.txt"
 
+fixel_mask="${template_dir}/fixel_mask"
+density_dir="${data_directory}/derivatives/MRtrix3/tract_densities"
+fbc_output_dir="${template_dir}/FBC_ch123_to_hippocampus"
 
-  # === Step 4: Filter tractography to ROI-to-ROI streamlines ===
-  echo " -> Filtering tracts from Ch123 to hippocampus..."
-  tckedit "${subject_dir}/${subject}_tracts.tck" \
-    -include "${subject_dir}/${subject}_ch123_in_subject_space_warped_to_template.mif" \
-    -include "${subject_dir}/${subject}_hippocampus_in_subject_space_warped_to_template.mif" \
-    -tck_weights_in "${subject_dir}/${subject}_sift2_weights.txt" \
+mkdir -p "$density_dir"
+mkdir -p "$fbc_output_dir"
+
+echo "----------------- Running Subject-Level FBC -----------------"
+
+for subject in $(cat "/media/hkhe451/Expansion/phd-projects/BDNF-project/BDNF_project_data/code/sub_files.txt")
+do
+
+  echo "Processing subject: $subject"
+
+  subject_dir="${data_directory}/derivatives/MRtrix3/${subject}/dwi"
+  fod="${subject_dir}/${subject}_wmfod_in_MNI_space.mif"
+  tracks="${subject_dir}/${subject}_tracts.tck"
+  sift2_weights="${subject_dir}/${subject}_sift2_weights.txt"
+  ch123_mask="${subject_dir}/"${subject_dir}/ch123_in_subject_space_warped_to_template.mif""
+  hippocampus_mask="${subject_dir}/hippocampus_in_subject_space_warped_to_template.mif"
+  fd_map="${template_dir}/fd/${subject}_fd.mif"
+
+  # === Step 1: Generate whole-brain tractogram ===
+  echo " -> Generating tractogram..."
+  tckgen "$fod" "$tracks" \
+    -seed_dynamic "$fod" \
+    -algorithm iFOD2 \
+    -select 10000000 \
+    -cutoff 0.06 \
+    -minlength 10 -maxlength 250 \
+    -force
+
+  # === Step 2: Compute SIFT2 weights ===
+  echo " -> Computing SIFT2 weights..."
+  tcksift2 "$tracks" "$fod" "$sift2_weights" -force
+
+  # === Step 3: Filter tracts between Ch123 and Hippocampus ===
+  echo " -> Filtering ROI-to-ROI streamlines..."
+  tckedit "$tracks" \
+    -include "$ch123_mask" \
+    -include "$hippocampus_mask" \
+    -tck_weights_in "$sift2_weights" \
     -tck_weights_out "${subject_dir}/${subject}_sift2_weights_filtered.txt" \
-    -ends_only \
     "${subject_dir}/${subject}_tracts_filtered.tck" -force
 
-  # === Step 5: Create voxel-wise streamline density map ===
-  echo " -> Creating voxel-wise density from filtered tracts..."
+  # === Step 4: Create voxel-wise streamline density map ===
+  echo " -> Creating voxel-wise density..."
   tckmap "${subject_dir}/${subject}_tracts_filtered.tck" \
          "${density_dir}/${subject}_voxel_density.mif" \
          -template "$fod" \
          -tck_weights_in "${subject_dir}/${subject}_sift2_weights_filtered.txt" \
          -precise -force
 
-  # === Step 6: Convert to fixel-wise density ===
-  echo " -> Converting to fixel-wise density..."\n🎉 
+  # === Step 5: Convert to fixel-wise streamline density ===
+  echo " -> Converting to fixel-wise density..."
   voxel2fixel "${density_dir}/${subject}_voxel_density.mif" \
               "$fixel_mask" \
               "$density_dir" \
               "${density_dir}/${subject}_streamline_density_fixel.mif" -force
 
-  # === Step 7: Multiply FD x streamline density = FBC ===
+  # === Step 6: Calculate FBC = FD × streamline_density ===
   echo " -> Calculating FBC..."
-  mrcalc "${template_dir}/fd/${subject}_fd.mif" \
+  mrcalc "$fd_map" \
          "${density_dir}/${subject}_streamline_density_fixel.mif" \
          -mult "${fbc_output_dir}/${subject}_FBC.mif" -force
 
-  echo "Done for ${subject}"
+  echo "✅ Finished subject: $subject"
+  echo "$subject" >> "${fbc_output_dir}/FBC_subjects_processed.txt"
+
 done
 
-echo "Subject-level FBC pipeline complete."
+echo "🎉 All subjects processed for FBC."
+
