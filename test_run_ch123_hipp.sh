@@ -70,7 +70,6 @@ tckgen "$fod" "${tract_dir}/${subject}_wholebrain.tck" \
     -force
 echo " -> Computing SIFT2 weights..."
 tcksift2 "$tract_dir/${subject}_wholebrain.tck" "$fod" "$tract_dir/${subject}_sift2_weights.txt" -force
-echo " -> Creating template-space fixel mask from Ch123-to-Hippocampus tract..."
 echo " -> Filtering streamlines from Ch123 to Hippocampus..."
 tckedit "${tract_dir}/${subject}_wholebrain.tck" \
     -include "$subject_dir/ch123_in_subject_space.mif" \
