@@ -9,7 +9,7 @@ Julich_Atlas="${data_directory}/JulichBrainAtlas_3.0_areas_MPM_b_N10_nlin2ICBM15
 
 mkdir -p "$template_dir/FBC_ch123_to_hippocampus"
 mkdir -p "$data_directory/derivatives/MRtrix3/tract_densities"
-
+mkdir -p "$subject_dir/tracts_ch123_to_hippocampus"
 # === Generate Ch123 and Hippocampus Masks ===
 mrconvert "$Julich_Atlas" "$template_dir/julich_mpm_3.0.mif" -force
 mrcalc "$template_dir/julich_mpm_3.0.mif" 1097 -eq "$template_dir/ch123_right_mask.mif" -force
@@ -36,7 +36,7 @@ for subject in $(cat "$subjects_list"); do
   fod="$subject_dir/${subject}_wmfod_norm.mif"
   warp_dir="$template_dir/warps"
   template_warp="$warp_dir/${subject}_wmfod_norm.mif"
-  mkdir -p "$subject_dir/tracts_ch123_to_hippocampus"
+
 
   mrtransform -linear "$template_dir/wmfod_template_2_MNI.txt" -inverse "$template_dir/Hippocampus_mask.mif" "$template_dir/hippocampus_in_template_space.mif" -template "$template_dir/wmfod_template.mif" -interp nearest -datatype bit -force
   mrtransform -warp_full "$template_warp" -from 2 "$template_dir/hippocampus_in_template_space.mif" "$subject_dir/hippocampus_in_subject_space.mif" -template "$fod" -interp nearest -datatype bit -force
@@ -117,7 +117,12 @@ echo "----------------- Running Subject-Level FBC -----------------"
 for subject in $(cat "$subjects_list"); do
   echo "Processing subject: $subject"
 
+
+
+  data_directory=/media/hkhe451/Expansion/phd-projects/BDNF-project/BDNF_FI
+  template_dir="${data_directory}/derivatives/MRtrix3/template"
   subject_dir="$data_directory/derivatives/MRtrix3/${subject}/dwi"
+  template_dir="${data_directory}/derivatives/MRtrix3/template"
   tract_dir="$subject_dir/tracts_ch123_to_hippocampus"
   fod="$subject_dir/${subject}_wmfod_norm.mif"
   fd_map="$template_dir/fd/${subject}_fd.mif"
@@ -127,33 +132,66 @@ for subject in $(cat "$subjects_list"); do
   fbc_output_dir="$template_dir/FBC_ch123_to_hippocampus"
   mkdir -p "${subject_dir}/tracts_ch123_to_hippocampus/fixel_data"
   mkdir -p "$tract_dir/fixel_data"
+  mkdir -p "$template_dir/fixels"
 
  # Warp FD map to template space
-mrtransform "${template_dir}/fd/${subject}_fd.mif" -warp "${subject_dir}/${subject}_subject2template_warp.mif" -template "${template_dir}/wmfod_template_MNI.mif" "${tract_dir}/${subject}_fd_in_template.mif" -force
+ # This line is trying to warp the FD map to template space, but the input is a fixel mask, not a FOD.
+#mrtransform "${template_dir}/fd/${subject}_fd.mif" -warp "${subject_dir}/${subject}_subject2template_warp.mif" -template "${template_dir}/wmfod_template_MNI.mif" "${tract_dir}/${subject}_fd_in_template.mif" -force
+
+	fod2fixel -mask "$template_dir/tract_mask_template.mif" "${data_directory}/derivatives/MRtrix3/fods/${subject}_fod_in_template_space_NOT_REORIENTED.mif" "$template_dir/fixels/${subject}_fixel_mask_in_template_space_NOT_REORIENTED" -afd fd.mif -force 
+	#i dont have each subjects tract mask
+	fixelreorient "$template_dir/fixels/${subject}_fixel_mask_in_template_space_NOT_REORIENTED" "${subject_dir}/${subject}_subject2template_warp.mif" "$template_dir/fixels/${subject}_fixel_mask_in_template_space_reoriented" -force 
+	
 
 # Warp voxel density map to template space before voxel2fixel
 mrtransform "${tract_dir}/${subject}_voxel_density.mif" -warp "${subject_dir}/${subject}_subject2template_warp.mif" -template "${template_dir}/wmfod_template_MNI.mif" "${tract_dir}/${subject}_voxel_density_in_template_space.mif" -force
 # === Step 6: Convert to fixel-wise streamline density ===
 mkdir -p "${subject_dir}/tracts_ch123_to_hippocampus/fixel_data"
 
-voxel2fixel "${subject_dir}/tracts_ch123_to_hippocampus/${subject}_voxel_density_in_template_space.mif" "$template_dir/fixel_mask_ch123_to_hipp" "${subject_dir}/tracts_ch123_to_hippocampus/fixel_data" "${subject}_streamline_density_fixel.mif" -force
+#voxel2fixel "${subject_dir}/tracts_ch123_to_hippocampus/${subject}_voxel_density_in_template_space.mif" "$template_dir/fixel_mask_ch123_to_hipp" "$template_dir/fixels/${subject}_fixel_mask_in_template_space_reoriented/streamline_density" "${subject}_streamline_density_fixel.mif" -force
+voxel2fixel "${tract_dir}/${subject}_voxel_density_in_template_space.mif" "$template_dir/fixels/${subject}_fixel_mask_in_template_space_reoriented" "$template_dir/fixels/${subject}_fixel_mask_in_template_space_reoriented/streamline_density" "${subject}_streamline_density_fixel.mif" -force
 # === Step 7: Compute mean streamline length ===
 echo " -> Computing mean streamline length..."
 tckstats "${tract_dir}/${subject}_tracts_filtered.tck" -dump lengths.txt -force
 mean_length=$(awk '{ total += $1; count++ } END { printf "%.6f", total/count }' lengths.txt)
-
+done 
 # Convert FD to fixel space
-echo " -> Converting FD to fixel space..."
-voxel2fixel "${tract_dir}/${subject}_fd_in_template.mif" "${template_dir}/fixel_mask_ch123_to_hipp" "${tract_dir}/fixel_data" "${subject}_fd_fixel.mif" -force
+# But it doenst work becasue the input in not generated in a previous step, and the fd map is already a fixel map thing.
+#echo " -> Converting FD to fixel space..."
+#voxel2fixel "${tract_dir}/${subject}_fd_in_template.mif" "${template_dir}/fixel_mask_ch123_to_hipp" "${tract_dir}/fixel_data" "${subject}_fd_fixel.mif" -force
 
+for subject in $(cat "$subjects_list"); do
+  echo "Processing subject: $subject"
+
+
+
+  data_directory=/media/hkhe451/Expansion/phd-projects/BDNF-project/BDNF_FI
+  template_dir="${data_directory}/derivatives/MRtrix3/template"
+  subject_dir="$data_directory/derivatives/MRtrix3/${subject}/dwi"
+  template_dir="${data_directory}/derivatives/MRtrix3/template"
+  tract_dir="$subject_dir/tracts_ch123_to_hippocampus"
+  fod="$subject_dir/${subject}_wmfod_norm.mif"
+  fd_map="$template_dir/fd/${subject}_fd.mif"
+  warp="$subject_dir/${subject}_subject2template_warp.mif"
+  ch123_mask="$subject_dir/ch123_in_subject_space_warped_to_template.mif"
+  hippocampus_mask="$subject_dir/hippocampus_in_subject_space_warped_to_template.mif"
+  fbc_output_dir="$template_dir/FBC_ch123_to_hippocampus"
+  mkdir -p "${subject_dir}/tracts_ch123_to_hippocampus/fixel_data"
+  mkdir -p "$tract_dir/fixel_data"
+  mkdir -p "$template_dir/fixels"
 
 echo " -> Calculating FBC (FD × streamline density / mean length)..."
 # Multiply FD × streamline density
-mrcalc "${tract_dir}/fixel_data/${subject}_fd_fixel.mif" "${tract_dir}/fixel_data/${subject}_streamline_density_fixel.mif" -mult "${tract_dir}/fixel_data/${subject}_numerator.mif" -force
+#output from fixelreoirent should go here for the first part of mrcalc 
+mrcalc "$template_dir/fixels/${subject}_fixel_mask_in_template_space_reoriented/fd.mif" "$template_dir/fixels/${subject}_fixel_mask_in_template_space_reoriented/streamline_density/${subject}_streamline_density_fixel.mif" -mult "${tract_dir}/fixel_data/${subject}_numerator.mif" -force
 mrcalc "${tract_dir}/fixel_data/${subject}_numerator.mif" "$mean_length" -div "${tract_dir}/fixel_data/${subject}_fbc.mif" -force
+
+	
 
 # Copy FBC map to group-level folder for fixelcfestats
 cp "${tract_dir}/fixel_data/${subject}_fbc.mif" "$fbc_output_dir/${subject}_fbc.mif"
+
+#cp "${tract_dir}/fixel_data/${subject}_fbc.mif" "$template_dir/FBC_ch123_to_hippocampus/${subject}_fbc.mif"
 
 echo " Finished subject: $subject"
 
@@ -164,14 +202,24 @@ echo " All subjects processed for FBC."
 
 echo " Starting fixelconnectivity and stats..."
 # === Connectivity & stats using tract-specific fixel mask in template space ===
-fixelconnectivity "${template_dir}/fixel_mask_ch123_to_hipp" "${template_dir}/tract_ch123_to_hipp_template.tck" "${template_dir}/fixel_mask_ch123_to_hipp/connectivity.mif" -force
+#fixelconnectivity "${template_dir}/fixel_mask_ch123_to_hipp" "${template_dir}/tract_ch123_to_hipp_template.tck" "${template_dir}/fixel_mask_ch123_to_hipp/connectivity" -force
+fixelconnectivity "$template_dir/fixels/${subject}_fixel_mask_in_template_space_reoriented" "${template_dir}/tract_ch123_to_hipp_template.tck" "${template_dir}/fixel_mask_ch123_to_hipp/connectivity" -force
+
 
 rm -rf "$template_dir/stats_fbc"
 
-fbc_output_dir="$template_dir/FBC_ch123_to_hippocampus"
+
+
+fbc_output_dir="$template_dir/FBC_ch123_to_hippocampus/"
 files_fbc="${data_directory}/code/files_fbc_BDNF_FI.txt"
-design_matrix="${data_directory}/code/design_matrix_fbc_BDNF_FI.txt"
-contrast_matrix="${data_directory}/code/contrast_matrix_fbc_BDNF_FI.txt"
+design_matrix="${data_directory}/code/design_matrix_BDNF_FI.txt"
+contrast_matrix="${data_directory}/code/contrast_matrix_BDNF_FI.txt"
 
 
-fixelcfestats "$fbc_output_dir" "$files_fbc" "$design_matrix" "$contrast_matrix" "$template_dir/fixel_mask_ch123_to_hipp/connectivity.mif" "$template_dir/stats_fbc" -nshuffles 5000 -force
+mkdir -p "$template_dir/stats_fbc"
+
+cp "${template_dir}/fixel_mask_ch123_to_hipp/index.mif" "$template_dir/FBC_ch123_to_hippocampus/"
+cp "${template_dir}/fixel_mask_ch123_to_hipp/directions.mif" "$template_dir/FBC_ch123_to_hippocampus/"
+
+
+fixelcfestats "$fbc_output_dir" "$files_fbc" "$design_matrix" "$contrast_matrix" "$template_dir/fixel_mask_ch123_to_hipp/connectivity" "$template_dir/stats_fbc" -nshuffles 5000 -force
