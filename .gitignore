@@ -1,2 +1,3 @@
-*.tck
-*.nii.gz
+*
+!*.sh
+!.gitignore
